@@ -8,8 +8,7 @@ import java.io.Serializable;
 @Data
 public class Span implements Serializable, Dedupable {
     private static final long serialVersionUID = 0L;
-    private long traceIdLow;
-    private long traceIdHigh;
+    private long traceId;
     private long spanId;
     private long parentSpanId;
     private String serviceName;

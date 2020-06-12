@@ -3,11 +3,10 @@ package io.jaegertracing.dependencies;
 import com.codahale.metrics.SlidingTimeWindowReservoir;
 import io.jaegertracing.analytics.adjuster.Dedupable;
 import io.jaegertracing.analytics.adjuster.SpanIdDeduplicator;
-import io.jaegertracing.dependencies.cassandra.CassandraCallCountAggregator;
-import io.jaegertracing.dependencies.cassandra.Dependencies;
-import io.jaegertracing.dependencies.cassandra.Dependency;
+import io.jaegertracing.dependencies.model.DependencyItem;
 import io.jaegertracing.dependencies.model.Span;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeHint;
@@ -27,6 +26,7 @@ import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -40,45 +40,57 @@ public class DependenciesProcessor {
     private static final String TRACE_TO_DEPENDENCIES = "TraceToDependencies";
     private static final String AGGREGATE_DEPENDENCIES = "AggregateDependencies";
     private static final String PREAGGREGATE_DEPENDENCIES = "PreAggregateDependencies";
-    private static final String CASSANDRA_SINK = "CassandraSink";
+    private static final String STORAGE_SINK = "StorageSink";
     private static final String COUNT_SPANS = "CountSpans";
     private static final String FILTER_LOCAL_SPANS = "FilterLocalSpans";
 
-    private static final Time sessionWindow = Time.minutes(3);
-    private static final Time cassandraAggregationWindow = Time.minutes(30);
+    private static final Time sessionWindow = Time.seconds(10);
+    private static final Time aggregationWindow = Time.seconds(30);
 
-    public static void setupJob(SingleOutputStreamOperator<Span> spans, SinkFunction<Dependencies> cassandraSink) {
+    public static <S> void setupJob(SingleOutputStreamOperator<Span> spans,
+                             AggregateFunction<DependencyItem, Map<DependencyItem, Long>, S> aggregateFunction,
+                             SinkFunction<S> sink) {
         DataStream<Iterable<Span>> traces = aggregateSpansToTraces(spans);
-        DataStream<Dependency> dependencies = computeDependencies(traces);
-        aggregateAndWrite(dependencies, cassandraSink);
+        DataStream<DependencyItem> dependencies = computeDependencies(traces);
+        aggregateAndWrite(dependencies, aggregateFunction, sink);
     }
+
 
     private static DataStream<Iterable<Span>> aggregateSpansToTraces(DataStream<Span> spans) {
         // Use session windows to aggregate spans into traces
         return spans.filter((FilterFunction<Span>) span -> span.isClient() || span.isServer()).name(FILTER_LOCAL_SPANS)
-                .keyBy((KeySelector<Span, String>) span -> String.format("%d:%d", span.getTraceIdHigh(), span.getTraceIdLow()))
+                .keyBy((KeySelector<Span, Long>) Span::getTraceId)
                 .window(EventTimeSessionWindows.withGap(sessionWindow))
                 .apply(new SpanToTraceWindowFunction()).name(SPANS_TO_TRACES)
                 .map(new AdjusterFunction<>()).name(DEDUPE_SPAN_IDS)
                 .map(new CountSpansAndLogLargeTraceIdFunction()).name(COUNT_SPANS);
     }
 
-    private static DataStream<Dependency> computeDependencies(DataStream<Iterable<Span>> traces) {
+    private static DataStream<DependencyItem> computeDependencies(DataStream<Iterable<Span>> traces) {
         return traces.flatMap(new TraceToDependencies()).name(TRACE_TO_DEPENDENCIES)
                 .keyBy(key -> key.getParent() + key.getChild())
-                .timeWindow(cassandraAggregationWindow)
+                .timeWindow(aggregationWindow)
                 .sum("callCount").name(PREAGGREGATE_DEPENDENCIES);
     }
 
-    private static void aggregateAndWrite(DataStream<Dependency> dependencies, SinkFunction<Dependencies> cassandraSink) {
-        dependencies.timeWindowAll(cassandraAggregationWindow)
-                .aggregate(new CassandraCallCountAggregator()).name(AGGREGATE_DEPENDENCIES)
-                .addSink(cassandraSink).name(CASSANDRA_SINK).setParallelism(1);
+    private static <S> void aggregateAndWrite(DataStream<DependencyItem> dependencies,
+                                              AggregateFunction<DependencyItem, Map<DependencyItem, Long>, S> aggregateFunction,
+                                              SinkFunction<S> sink) {
+        dependencies.timeWindowAll(aggregationWindow)
+                .aggregate(aggregateFunction).name(AGGREGATE_DEPENDENCIES)
+                .addSink(sink).name(STORAGE_SINK).setParallelism(1);
     }
 
-    private static class SpanToTraceWindowFunction extends RichWindowFunction<Span, Iterable<Span>, String, TimeWindow> {
+    private static class SpanToTraceWindowFunction extends RichWindowFunction<Span, Iterable<Span>, Long, TimeWindow> {
         @Override
-        public void apply(String s, TimeWindow timeWindow, Iterable<Span> spans, Collector<Iterable<Span>> collector) {
+        public void open(Configuration parameters) throws Exception {
+            super.open(parameters);
+            log.info("OPENING WINDOW {}", parameters);
+        }
+
+        @Override
+        public void apply(Long s, TimeWindow timeWindow, Iterable<Span> spans, Collector<Iterable<Span>> collector) {
+            log.info("COLLECTING {}", s);
             collector.collect(spans);
         }
     }
@@ -123,7 +135,7 @@ public class DependenciesProcessor {
 
             if (size > 80000) {
                 Span span = spans.iterator().next();
-                log.info("Large trace traceIdLow:{} traceIdHigh:{} spansPerTrace:{}", Long.toHexString(span.getTraceIdLow()), Long.toHexString(span.getTraceIdHigh()), size);
+                log.info("Large trace traceId:{} spansPerTrace:{}", span.getTraceId(), size);
             }
             traceToSpans.update(size);
             return spans;

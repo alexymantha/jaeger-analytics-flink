@@ -6,7 +6,11 @@ plugins {
     id "io.spring.dependency-management" version "1.0.6.RELEASE"
 }
 
-ext.flinkVersion = '1.7.2'
+ext.flinkVersion = '1.10.1'
+
+repositories {
+    jcenter()
+}
 
 subprojects {
     apply plugin: 'java'
@@ -18,8 +22,10 @@ subprojects {
             dependencySet(group: "org.apache.flink", version: flinkVersion) {
                 entry 'flink-avro'
                 entry 'flink-connector-cassandra_2.12'
+                entry 'flink-connector-elasticsearch6_2.11'
                 entry 'flink-connector-kafka_2.12'
                 entry 'flink-java'
+                entry 'flink-json'
                 entry 'flink-metrics-dropwizard'
                 entry 'flink-metrics-prometheus_2.12'
                 entry 'flink-streaming-java_2.12'

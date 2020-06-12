@@ -8,7 +8,7 @@ import java.util.Collections;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
-public class SpanDeserializerTest {
+public class AvroSpanDeserializerTest {
 
   private final long traceIdLow = 1235;
   private final long spanId = 4444;

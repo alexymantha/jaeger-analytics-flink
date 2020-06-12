@@ -1,6 +1,7 @@
 package io.jaegertracing.dependencies;
 
 import io.jaegertracing.dependencies.cassandra.Dependency;
+import io.jaegertracing.dependencies.model.DependencyItem;
 import io.jaegertracing.dependencies.model.Span;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.util.Collector;
@@ -13,9 +14,9 @@ import java.util.Map;
  * defined by parent spanId.
  * Note that each call is represented as a separate {@link Dependency}.
  */
-public class TraceToDependencies extends RichFlatMapFunction<Iterable<Span>, Dependency> {
+public class TraceToDependencies extends RichFlatMapFunction<Iterable<Span>, DependencyItem> {
     @Override
-    public void flatMap(Iterable<Span> spans, Collector<Dependency> dependencies) {
+    public void flatMap(Iterable<Span> spans, Collector<DependencyItem> dependencies) {
         Map<Long, String> spanIdToService = new HashMap<>();
         spans.forEach(span -> spanIdToService.put(span.getSpanId(), span.getServiceName()));
 
@@ -26,7 +27,7 @@ public class TraceToDependencies extends RichFlatMapFunction<Iterable<Span>, Dep
                 continue;
             }
 
-            dependencies.collect(new Dependency(parent, child, (long) 1));
+            dependencies.collect(new DependencyItem(parent, child, 1L));
         }
     }
 }

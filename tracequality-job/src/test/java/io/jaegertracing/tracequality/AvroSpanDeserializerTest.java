@@ -1,16 +1,16 @@
-package io.jaegertracing.dependencies;
+package io.jaegertracing.tracequality;
 
 import com.uber.jaeger.Process;
 import com.uber.jaeger.SpanRef;
 import com.uber.jaeger.Tag;
-import io.jaegertracing.dependencies.model.Span;
+import io.jaegertracing.tracequality.model.Span;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.util.Collections;
 
-public class SpanDeserializerTest {
+public class AvroSpanDeserializerTest {
     private final long traceIdLow = 1235;
     private final long traceIdHigh = 3333;
     private final long spanId = 4444;
@@ -71,6 +71,35 @@ public class SpanDeserializerTest {
     }
 
     @Test
+    public void mapPeerServiceTag() throws Exception {
+        com.uber.jaeger.Span jSpan = getSpan();
+
+        Tag tag = new Tag();
+        tag.setKey("peer.service");
+        tag.setVStr("rtapi");
+        jSpan.setTags(Collections.singletonList(tag));
+
+        Span span = spanDeserializer.map(jSpan);
+        Assertions.assertThat(span.getPeerService()).isEqualTo("rtapi");
+    }
+
+    @Test
+    public void mapClientVersion() throws Exception {
+        com.uber.jaeger.Span jSpan = getSpan();
+
+        Tag tag = new Tag();
+        tag.setKey("jaeger.version");
+        tag.setVStr("go-1.2.3");
+
+        Process process = new com.uber.jaeger.Process();
+        process.setTags(Collections.singletonList(tag));
+        jSpan.setProcess(process);
+
+        Span span = spanDeserializer.map(jSpan);
+        Assertions.assertThat(span.getClientVersion()).isEqualTo("go-1.2.3");
+    }
+
+    @Test
     public void mapParentSpan() throws Exception {
         long parentSpanId = 123;
 
@@ -102,3 +131,4 @@ public class SpanDeserializerTest {
         Assertions.assertThat(spanDeserializer.getProducedType()).isEqualTo(TypeInformation.of(Span.class));
     }
 }
+

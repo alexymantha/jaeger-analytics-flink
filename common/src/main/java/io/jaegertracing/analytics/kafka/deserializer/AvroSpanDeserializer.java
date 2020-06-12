@@ -1,4 +1,4 @@
-package io.jaegertracing.analytics.avro;
+package io.jaegertracing.analytics.kafka.deserializer;
 
 import com.uber.jaeger.Span;
 import com.uber.jaeger.SpanEnvelope;
@@ -15,7 +15,7 @@ import java.io.IOException;
  * Converts a byte array into a {@link Span}
  */
 @Slf4j
-public class SpanDeserializer extends AbstractDeserializationSchema<Span> {
+public class AvroSpanDeserializer extends AbstractDeserializationSchema<Span> {
     private transient DatumReader<SpanEnvelope> reader;
     private transient BinaryDecoder decoder;
 

@@ -32,7 +32,7 @@ public class DeepDependenciesJob implements JaegerJob<DependencyPath> {
 
   public static void main(String[] args) throws Exception {
     DeepDependenciesJob job = new DeepDependenciesJob();
-    job.executeJob("Deep Dependencies Job", TypeInformation.of(new TypeHint<DependencyPath>() {}));
+    job.executeJob("Deep Dependencies Job", SinkStorage.CASSANDRA, TypeInformation.of(new TypeHint<DependencyPath>() {}));
   }
 
   @Override
