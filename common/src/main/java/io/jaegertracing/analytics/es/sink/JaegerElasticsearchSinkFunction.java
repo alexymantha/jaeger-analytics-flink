@@ -24,7 +24,7 @@ public class JaegerElasticsearchSinkFunction<T> implements ElasticsearchSinkFunc
     public IndexRequest createIndexRequest(T element) throws IOException {
         LocalDate date = LocalDate.now(ZoneOffset.UTC);
         return Requests.indexRequest()
-                .index(String.format("%s-jaeger-dependencies-%s", indexPrefix, date.format(DateTimeFormatter.ISO_LOCAL_DATE)))
+                .index(String.format("jaeger-dependencies-%s", date.format(DateTimeFormatter.ISO_LOCAL_DATE)))
                 .type(type)
                 .source(new ObjectMapper().writeValueAsBytes(element), XContentType.JSON);
     }
