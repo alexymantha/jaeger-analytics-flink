@@ -11,6 +11,8 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 
+import java.io.File;
+
 @Slf4j
 public class DependenciesJob implements JaegerJob<TimeDependencies> {
     /**
@@ -21,7 +23,7 @@ public class DependenciesJob implements JaegerJob<TimeDependencies> {
 
     public static void main(String[] args) throws Exception {
         DependenciesJob job = new DependenciesJob();
-        ParameterTool parameterTool = ParameterTool.fromArgs(args);
+        ParameterTool parameterTool = ParameterTool.fromPropertiesFile(new File(System.getProperty("CONFIG_PATH")));
 
         job.executeJob("Dependencies Job", parameterTool, SinkStorage.ELASTICSEARCH, TypeInformation.of(TimeDependencies.class));
     }
