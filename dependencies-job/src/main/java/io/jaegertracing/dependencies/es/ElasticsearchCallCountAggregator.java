@@ -4,8 +4,12 @@ import io.jaegertracing.dependencies.model.DependencyItem;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.functions.AggregateFunction;
 
+import java.sql.Timestamp;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,8 +28,9 @@ public class ElasticsearchCallCountAggregator implements AggregateFunction<Depen
 
     @Override
     public TimeDependencies getResult(Map<DependencyItem, Long> accumulator) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SS'Z'");
         TimeDependencies result = new TimeDependencies(
-                Instant.now().toEpochMilli() * 1000 * 1000, // To nanoseconds
+                dateFormat.format(new Date()), // To date
                 new ArrayList<>()
         );
 

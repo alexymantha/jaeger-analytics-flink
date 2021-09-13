@@ -11,4 +11,8 @@ public class DependencyLink implements Serializable {
     private String parent;
     private String child;
     private long callCount;
+    /**
+     * @link
+     */
+    private final String source = "jaeger";
 }

@@ -13,8 +13,6 @@ public class JsonReference implements Serializable {
     public static final String FOLLOWS_FROM_REF_TYPE = "FOLLOWS_FROM";
 
     private String refType;
-    @JsonProperty("traceID")
     private String traceId;
-    @JsonProperty("spanID")
     private String spanId;
 }
