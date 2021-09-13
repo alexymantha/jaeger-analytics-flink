@@ -1,6 +1,7 @@
 package io.jaegertracing.dependencies;
 
 import io.jaegertracing.dependencies.cassandra.Dependency;
+import io.jaegertracing.dependencies.model.DependencyItem;
 import io.jaegertracing.dependencies.model.Span;
 import org.apache.flink.api.common.functions.util.ListCollector;
 import org.junit.Test;
@@ -17,7 +18,7 @@ public class TraceToDependenciesTest {
 
     private Span makeSpan(long traceId, long spanId, long parentSpanId, String serviceName) {
         Span span = new Span();
-        span.setTraceIdLow(traceId);
+        span.setTraceId(traceId);
         span.setSpanId(spanId);
         span.setParentSpanId(parentSpanId);
         span.setServiceName(serviceName);
@@ -25,13 +26,13 @@ public class TraceToDependenciesTest {
     }
 
     @Test
-    public void testNoDependency() throws Exception {
+    public void testNoDependency() {
         List<Span> spans = new ArrayList<>();
         spans.add(makeSpan(1, 1, 0, SERVICE[0]));
 
 
         TraceToDependencies traceToDependencies = new TraceToDependencies();
-        List<Dependency> dependencies = new ArrayList<>();
+        List<DependencyItem> dependencies = new ArrayList<>();
         traceToDependencies.flatMap(spans, new ListCollector<>(dependencies));
         assertThat(dependencies).isEmpty();
     }
@@ -43,15 +44,15 @@ public class TraceToDependenciesTest {
      *  a
      */
     @Test
-    public void testCircularDependencies() throws Exception {
+    public void testCircularDependencies() {
         List<Span> spans = new ArrayList<>();
         spans.add(makeSpan(1, 1, 0, SERVICE[0]));
         spans.add(makeSpan(1, 2, 1, SERVICE[0]));
 
         TraceToDependencies traceToDependencies = new TraceToDependencies();
-        List<Dependency> dependencies = new ArrayList<>();
+        List<DependencyItem> dependencies = new ArrayList<>();
         traceToDependencies.flatMap(spans, new ListCollector<>(dependencies));
-        assertThat(dependencies).containsExactly(new Dependency(SERVICE[0], SERVICE[0], (long) 1));
+        assertThat(dependencies).containsExactly(new DependencyItem(SERVICE[0], SERVICE[0], (long) 1));
     }
 
     /**
@@ -61,7 +62,7 @@ public class TraceToDependenciesTest {
      *   b  b
      */
     @Test
-    public void testOneDependencies() throws Exception {
+    public void testOneDependencies() {
         List<Span> spans = new ArrayList<>();
         spans.add(makeSpan(1, 1, 0, SERVICE[0]));
 
@@ -69,11 +70,11 @@ public class TraceToDependenciesTest {
         spans.add(makeSpan(1, 3, 1, SERVICE[1]));
 
         TraceToDependencies traceToDependencies = new TraceToDependencies();
-        List<Dependency> dependencies = new ArrayList<>();
+        List<DependencyItem> dependencies = new ArrayList<>();
         traceToDependencies.flatMap(spans, new ListCollector<>(dependencies));
         assertThat(dependencies)
                 .containsExactly(
-                        new Dependency(SERVICE[0], SERVICE[1], (long) 1), new Dependency(SERVICE[0], SERVICE[1], (long) 1));
+                        new DependencyItem(SERVICE[0], SERVICE[1], (long) 1), new DependencyItem(SERVICE[0], SERVICE[1], (long) 1));
     }
 
     /**
@@ -83,7 +84,7 @@ public class TraceToDependenciesTest {
      *  b  c
      */
     @Test
-    public void testTwoDependencies() throws Exception {
+    public void testTwoDependencies() {
         List<Span> spans = new ArrayList<>();
         spans.add(makeSpan(1, 1, 0, SERVICE[0]));
 
@@ -91,10 +92,10 @@ public class TraceToDependenciesTest {
         spans.add(makeSpan(1, 3, 1, SERVICE[2]));
 
         TraceToDependencies traceToDependencies = new TraceToDependencies();
-        List<Dependency> dependencies = new ArrayList<>();
+        List<DependencyItem> dependencies = new ArrayList<>();
         traceToDependencies.flatMap(spans, new ListCollector<>(dependencies));
         assertThat(dependencies)
-                .extracting(Dependency::getParent, Dependency::getChild)
+                .extracting(DependencyItem::getParent, DependencyItem::getChild)
                 .contains(tuple(SERVICE[0], SERVICE[1]), tuple(SERVICE[0], SERVICE[2]));
     }
 
@@ -111,7 +112,7 @@ public class TraceToDependenciesTest {
      *          c
      */
     @Test
-    public void testMultipleDependencies() throws Exception {
+    public void testMultipleDependencies() {
         List<Span> spans = new ArrayList<>();
         spans.add(makeSpan(1, 1, 0, SERVICE[0])); // a
 
@@ -126,10 +127,10 @@ public class TraceToDependenciesTest {
         spans.add(makeSpan(1, 7, 6, SERVICE[2])); // a-c
 
         TraceToDependencies traceToDependencies = new TraceToDependencies();
-        List<Dependency> dependencies = new ArrayList<>();
+        List<DependencyItem> dependencies = new ArrayList<>();
         traceToDependencies.flatMap(spans, new ListCollector<>(dependencies));
         assertThat(dependencies)
-                .extracting(Dependency::getParent, Dependency::getChild)
+                .extracting(DependencyItem::getParent, DependencyItem::getChild)
                 .contains(
                         tuple(SERVICE[0], SERVICE[1]), // a-b
                         tuple(SERVICE[0], SERVICE[2]), // a-c

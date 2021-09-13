@@ -1,30 +1,40 @@
 package io.jaegertracing.dependencies;
 
+import com.fasterxml.jackson.annotation.JsonTypeId;
 import com.uber.jaeger.Process;
 import com.uber.jaeger.SpanRef;
 import com.uber.jaeger.Tag;
+import io.jaegertracing.analytics.es.model.JsonProcess;
+import io.jaegertracing.analytics.es.model.JsonReference;
+import io.jaegertracing.analytics.es.model.JsonSpan;
+import io.jaegertracing.analytics.es.model.JsonTag;
+import io.jaegertracing.analytics.kafka.deserializer.JsonSpanDeserializer;
 import io.jaegertracing.dependencies.model.Span;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 
-public class AvroSpanDeserializerTest {
-    private final long traceIdLow = 1235;
-    private final long traceIdHigh = 3333;
-    private final long spanId = 4444;
+import static io.jaegertracing.dependencies.Base64Util.toBase64;
+
+public class JsonSpanDeserializerTest {
+    // Base64 value of 1235
+    private final String traceId = Base64Util.toBase64(1235, true);
+    // Base64 value of 4444
+    private final String spanId = Base64Util.toBase64(4444);
     private final String serviceName = "boop";
 
     private final SpanDeserializer spanDeserializer = new SpanDeserializer();
 
-    private com.uber.jaeger.Span getSpan() {
-        com.uber.jaeger.Span jSpan = new com.uber.jaeger.Span();
-        jSpan.setTraceIdLow(traceIdLow);
-        jSpan.setTraceIdHigh(traceIdHigh);
+    private JsonSpan getSpan() {
+        JsonSpan jSpan = new JsonSpan();
+        jSpan.setTraceId(traceId);
         jSpan.setSpanId(spanId);
 
-        Process process = new com.uber.jaeger.Process();
+        JsonProcess process = new JsonProcess();
         process.setServiceName(serviceName);
         jSpan.setProcess(process);
 
@@ -32,22 +42,21 @@ public class AvroSpanDeserializerTest {
     }
 
     @Test
-    public void mapRequiredFields() throws Exception {
-        com.uber.jaeger.Span jSpan = getSpan();
+    public void mapRequiredFields() {
+        JsonSpan jSpan = getSpan();
 
         Span span = spanDeserializer.map(jSpan);
-        Assertions.assertThat(span.getTraceIdLow()).isEqualTo(traceIdLow);
-        Assertions.assertThat(span.getTraceIdHigh()).isEqualTo(traceIdHigh);
-        Assertions.assertThat(span.getSpanId()).isEqualTo(spanId);
+        Assertions.assertThat(span.getTraceId()).isEqualTo(1235);
+        Assertions.assertThat(span.getSpanId()).isEqualTo(4444);
         Assertions.assertThat(span.getServiceName()).isEqualTo(serviceName);
     }
 
     @Test
-    public void mapServerTag() throws Exception {
-        com.uber.jaeger.Span jSpan = getSpan();
+    public void mapServerTag() {
+        JsonSpan jSpan = getSpan();
 
-        Tag tag = new Tag();
-        tag.setVStr("server");
+        JsonTag tag = new JsonTag();
+        tag.setValue("server");
         tag.setKey("span.kind");
         jSpan.setTags(Collections.singletonList(tag));
 
@@ -57,11 +66,11 @@ public class AvroSpanDeserializerTest {
     }
 
     @Test
-    public void mapClientTag() throws Exception {
-        com.uber.jaeger.Span jSpan = getSpan();
+    public void mapClientTag() {
+        JsonSpan jSpan = getSpan();
 
-        Tag tag = new Tag();
-        tag.setVStr("client");
+        JsonTag tag = new JsonTag();
+        tag.setValue("client");
         tag.setKey("span.kind");
         jSpan.setTags(Collections.singletonList(tag));
 
@@ -71,28 +80,26 @@ public class AvroSpanDeserializerTest {
     }
 
     @Test
-    public void mapParentSpan() throws Exception {
+    public void mapParentSpan() {
         long parentSpanId = 123;
 
-        com.uber.jaeger.Span jSpan = getSpan();
-        jSpan.setParentSpanId(parentSpanId);
-
+        JsonSpan jSpan = getSpan();
+        jSpan.setReferences(Collections.singletonList(new JsonReference(traceId, toBase64(parentSpanId), null)));
 
         Assertions.assertThat(spanDeserializer.map(jSpan).getParentSpanId()).isEqualTo(parentSpanId);
     }
 
     @Test
-    public void mapParentSpanFromReference() throws Exception {
-        long parentSpanId = 123;
+    public void mapParentSpanFromReference() {
+        String parentSpanId = Base64Util.toBase64(123);
 
-        SpanRef spanRef = new SpanRef();
-        spanRef.setRefType("child_of");
+        JsonReference spanRef = new JsonReference();
         spanRef.setSpanId(parentSpanId);
 
-        com.uber.jaeger.Span jSpan = getSpan();
+        JsonSpan jSpan = getSpan();
         jSpan.setReferences(Collections.singletonList(spanRef));
 
-        Assertions.assertThat(spanDeserializer.map(jSpan).getParentSpanId()).isEqualTo(parentSpanId);
+        Assertions.assertThat(spanDeserializer.map(jSpan).getParentSpanId()).isEqualTo(123);
     }
 
 
