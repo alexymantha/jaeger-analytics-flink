@@ -9,6 +9,6 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class TimeDependencies implements Serializable {
-    private long timestamp;
+    private String timestamp;
     private List<DependencyLink> dependencies;
 }
