@@ -6,16 +6,20 @@ plugins {
     id "io.spring.dependency-management" version "1.0.6.RELEASE"
 }
 
-ext.flinkVersion = '1.10.1'
+ext.flinkVersion = '1.13.2'
 
 repositories {
-    jcenter()
+    mavenCentral()
 }
 
 subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'io.franzbecker.gradle-lombok'
+
+    configurations {
+        shade
+    }
 
     dependencyManagement {
         dependencies {
@@ -59,10 +63,12 @@ subprojects {
         compile 'net.logstash.logback:logstash-logback-encoder'
         compile 'org.slf4j:log4j-over-slf4j'
 
-        compileOnly "org.apache.flink:flink-java"
-        compileOnly "org.apache.flink:flink-streaming-java_2.12"
-        compileOnly "org.apache.flink:flink-streaming-scala_2.12"
-        compileOnly "org.apache.flink:flink-metrics-prometheus_2.12"
+        compile "org.apache.flink:flink-java"
+        compile "org.apache.flink:flink-streaming-java_2.12"
+        compile "org.apache.flink:flink-streaming-scala_2.12"
+        compile "org.apache.flink:flink-metrics-prometheus_2.12"
+
+        shade "org.apache.flink:flink-connector-elasticsearch6_2.11"
 
         testCompile "org.apache.flink:flink-java"
         testCompile "org.apache.flink:flink-streaming-java_2.12"
@@ -73,7 +79,12 @@ subprojects {
     }
 
     repositories {
-        jcenter()
+        mavenCentral()
     }
+
+    shadowJar {
+        configurations = [subprojects.configurations.shade]
+    }
+
 }
 

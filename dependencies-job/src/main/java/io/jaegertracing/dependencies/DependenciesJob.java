@@ -12,6 +12,9 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 
 import java.io.File;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class DependenciesJob implements JaegerJob<TimeDependencies> {
@@ -23,7 +26,14 @@ public class DependenciesJob implements JaegerJob<TimeDependencies> {
 
     public static void main(String[] args) throws Exception {
         DependenciesJob job = new DependenciesJob();
-        ParameterTool parameterTool = ParameterTool.fromPropertiesFile(new File(System.getProperty("CONFIG_PATH")));
+
+        Map<String, String> env = System.getenv().entrySet().stream()
+                .filter(entry -> entry.getKey().toUpperCase().startsWith("JAEGER"))
+                .collect(Collectors.toMap(entry -> entry.getKey().replace("_", ".").substring(7).toLowerCase(), Map.Entry::getValue));
+
+
+        ParameterTool parameterTool = ParameterTool.fromMap(env);
+
 
         job.executeJob("Dependencies Job", parameterTool, SinkStorage.ELASTICSEARCH, TypeInformation.of(TimeDependencies.class));
     }
